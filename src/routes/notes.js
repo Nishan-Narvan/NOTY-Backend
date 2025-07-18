@@ -47,4 +47,62 @@ router.post('/', async (req, res) => {
     }
 });
 
+
+
+// PUT /api/notes/:id - Update note
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content } = req.body;
+    
+    // Check if note exists and belongs to user
+    const existingNote = await prisma.note.findFirst({
+      where: { 
+        id: id,
+        userId: req.user.id 
+      }
+    });
+    
+    if (!existingNote) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    const updatedNote = await prisma.note.update({
+      where: { id: id },
+      data: { title, content }
+    });
+    
+    res.json(updatedNote);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update note' });
+  }
+});
+
+// DELETE /api/notes/:id - Delete note
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if note exists and belongs to user
+    const existingNote = await prisma.note.findFirst({
+      where: { 
+        id: id,
+        userId: req.user.id 
+      }
+    });
+    
+    if (!existingNote) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    
+    await prisma.note.delete({
+      where: { id: id }
+    });
+    
+    res.json({ message: 'Note deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete note' });
+  }
+});
+
 module.exports = router;

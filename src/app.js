@@ -48,7 +48,7 @@ app.post('/api/test-token', async (req, res) => {
       });
     }
     
-    const token = generateToken(testUser.id, testUser.email);
+    const token = generateToken(testUser); 
     res.json({ token, user: testUser });
   } catch (error) {
     res.status(500).json({ error: error.message });
