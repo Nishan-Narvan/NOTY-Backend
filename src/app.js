@@ -72,23 +72,6 @@ app.use('/api/notes', notesRoutes); // Notes management routes
  * Handle 404 errors and global error catching
  */
 
-// 404 handler - catch all unmatched routes
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Route not found',
-    path: req.originalUrl
-  });
-});
 
-// Global error handler - catch all unhandled errors
-app.use((error, req, res, next) => {
-  console.error('Global error:', error);
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
-  });
-});
 
 module.exports = app;

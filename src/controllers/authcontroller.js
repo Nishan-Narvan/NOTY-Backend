@@ -1,57 +1,60 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-123';
+const {
+  hashPassword,
+  comparePassword,
+  generateToken
+} = require('../utils/auth');
 
-/**
- * Hash password with bcryptjs
- * @param {string} password - Plain text password
- * @returns {string} Hashed password
- */
-const hashPassword = async (password) => {
-  const saltRounds = 12;
-  return await bcrypt.hash(password, saltRounds);
+const register = async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name
+      }
+    });
+
+    const token = generateToken(user);
+    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    res.status(500).json({ message: 'Registration failed', error: err.message });
+  }
 };
 
-/**
- * Compare a password with its hash
- * @param {string} password - Plain text password
- * @param {string} hash - Hashed password
- * @returns {boolean} True if passwords match
- */
-const comparePassword = async (password, hash) => {
-  return await bcrypt.compare(password, hash);
-};
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-/**
- * Generate JWT token
- * @param {Object} user - User object with id and email
- * @returns {string} JWT token
- */
-const generateToken = (user) => {
-  return jwt.sign({
-    id: user.id,
-    email: user.email
-  },
-  JWT_SECRET,
-  {
-    expiresIn: '7d'
-  });
-};
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
 
-/**
- * Verify JWT token
- * @param {string} token - JWT token to verify
- * @returns {Object} Decoded token payload
- * @throws {Error} If token is invalid or expired
- */
-const verifyToken = (token) => {
-  return jwt.verify(token, JWT_SECRET);
+    const valid = await comparePassword(password, user.password);
+    if (!valid) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+
+    const token = generateToken(user);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    res.status(500).json({ message: 'Login failed', error: err.message });
+  }
 };
 
 module.exports = {
-  hashPassword,
-  comparePassword,
-  generateToken,
-  verifyToken
+  register,
+  login
 };

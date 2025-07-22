@@ -18,9 +18,9 @@ const prisma = new PrismaClient();
  * 3. Fetches user data from database
  * 4. Attaches user data to request object for use in route handlers
  * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
+//  * @param {Object} req - Express request object
+//  * @param {Object} res - Express response object
+//  * @param {Function} next - Express next middleware function
  */
 const authenticateToken = async (req, res, next) => {
   try {
