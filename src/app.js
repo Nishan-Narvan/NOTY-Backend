@@ -70,6 +70,7 @@ app.use('/api/notes', notesRoutes); // Notes management routes
 /**
  * ERROR HANDLING MIDDLEWARE
  * Handle 404 errors and global error catching
+ * trying to access non-existent routes and add more comments 
  */
 
 
