@@ -6,6 +6,7 @@
 // Import required dependencies
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const passport = require('passport');
 const { hashPassword, comparePassword, generateToken } = require('../utils/auth');
 const { authenticateToken } = require('../middlewares/authmiddleware');
 
@@ -80,13 +81,14 @@ router.post('/register', async (req, res) => {
 
     /**
      * STEP 6: CREATE USER IN DATABASE
-     * Store user data with hashed password
+     * Store user data with hashed password and email provider
      */
     const user = await prisma.user.create({
       data: {
         name,
         email: email.toLowerCase(), // Store lowercase for consistency
-        password: hashedPassword
+        password: hashedPassword,
+        provider: "email"
       }
     });
 
@@ -238,6 +240,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         id: true,
         name: true,
         email: true,
+        googleId: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -291,6 +294,106 @@ router.post('/logout', authenticateToken, (req, res) => {
     success: true,
     message: 'Logout successful. Please remove the token from client-side storage.'
   });
+});
+
+/**
+ * GOOGLE OAUTH ROUTES
+ * These endpoints handle Google OAuth 2.0 authentication flow
+ */
+
+/**
+ * INITIATE GOOGLE OAUTH
+ * GET /api/auth/google
+ * Redirects user to Google's OAuth consent screen
+ */
+router.get(
+  '/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+  })
+);
+
+/**
+ * GOOGLE OAUTH CALLBACK
+ * GET /api/auth/google/callback
+ * Google redirects here after user authorizes the application
+ * Redirects to frontend with JWT token
+ */
+router.get(
+  '/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: '/api/auth/google/failure',
+    session: true
+  }),
+  (req, res) => {
+    try {
+      // User is now authenticated by passport
+      const user = req.user;
+      console.log('✅ Google OAuth successful, user:', { id: user.id, email: user.email, name: user.name });
+      
+      // Generate JWT token
+      const token = generateToken(user);
+      console.log('✅ JWT token generated:', token.substring(0, 20) + '...');
+      
+      // Redirect to frontend with token
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      const redirectUrl = `${clientUrl}/auth/callback?token=${token}`;
+      console.log('✅ Redirecting to:', redirectUrl);
+      
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error('❌ Google callback redirect error:', error);
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${clientUrl}/login?error=Authentication failed`);
+    }
+  }
+);
+
+/**
+ * GOOGLE AUTH FAILURE HANDLER
+ * GET /api/auth/google/failure
+ * Handles authentication failures
+ */
+router.get('/google/failure', (req, res) => {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  res.redirect(`${clientUrl}/login?error=Google authentication failed`);
+});
+
+/**
+ * GET CURRENT AUTHENTICATED USER (from Google or JWT)
+ * GET /api/auth/me
+ * Returns current user information
+ */
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { user }
+    });
+  } catch (error) {
+    console.error('Get current user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user'
+    });
+  }
 });
 
 module.exports = router;

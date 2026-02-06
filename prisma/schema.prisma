@@ -14,8 +14,10 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?
   name      String?
+  googleId  String?  @unique
+  provider  String   @default("email") // "email" or "google"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   notes     Note[]

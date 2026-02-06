@@ -7,6 +7,7 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 
 // Import route handlers
 const authRoutes = require('./routes/auth');
@@ -14,6 +15,25 @@ const notesRoutes = require('./routes/notes');
 
 // Initialize Express application
 const app = express();
+const passport = require("./config/passport");
+
+
+// Session middleware (must come BEFORE passport.session)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set to true if using HTTPS
+}));
+
+// Body parser middleware must come BEFORE passport initialization
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Initialize passport and session support
+app.use(passport.initialize());
+app.use(passport.session());
+
 
 /**
  * RATE LIMITING CONFIGURATION
@@ -33,14 +53,17 @@ const limiter = rateLimit({
  * Apply security and parsing middleware to all routes
  */
 
+// Configure CORS for cross-origin requests FIRST
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173', // Allow requests from frontend (Vite default port)
+  credentials: true, // Allow cookies and authentication headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // Cache preflight for 24 hours
+}));
+
 // Apply rate limiting to all routes
 app.use(limiter);
-
-// Configure CORS for cross-origin requests
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000', // Allow requests from frontend
-  credentials: true // Allow cookies and authentication headers
-}));
 
 // Parse JSON request bodies (max 10MB)
 app.use(express.json({ limit: '10mb' }));
@@ -72,7 +95,23 @@ app.use('/api/notes', notesRoutes); // Notes management routes
  * Handle 404 errors and global error catching
  * trying to access non-existent routes and add more comments 
  */
+// 404 handler for unmatched routes
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    path: req.originalUrl
+  });
+});
 
-
+// Central error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err); // Log for debugging
+  const status = err.status || 500;
+  res.status(status).json({
+    success: false,
+    error: err.message || 'Internal server error'
+  });
+});
 
 module.exports = app;
