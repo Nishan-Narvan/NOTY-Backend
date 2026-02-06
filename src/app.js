@@ -55,13 +55,15 @@ const limiter = rateLimit({
 
 // Configure CORS for cross-origin requests FIRST
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173', // Allow requests from frontend (Vite default port)
-  credentials: true, // Allow cookies and authentication headers
+  origin: [
+    "http://localhost:5173",                      // 1. Allows your local laptop
+    "https://google-keep-clone-lime.vercel.app"   // 2. Allows your live Vercel app
+  ],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400 // Cache preflight for 24 hours
+  maxAge: 86400
 }));
-
 // Apply rate limiting to all routes
 app.use(limiter);
 
